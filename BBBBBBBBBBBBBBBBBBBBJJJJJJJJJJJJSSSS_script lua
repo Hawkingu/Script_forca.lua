@@ -1,0 +1,181 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "HAWKEXECUT+"
+ScreenGui.ResetOnSpawn = false
+
+-- Logo para abrir o menu
+local LogoButton = Instance.new("TextButton", ScreenGui)
+LogoButton.Position = UDim2.new(0, 10, 0, 10)
+LogoButton.Size = UDim2.new(0, 50, 0, 50)
+LogoButton.Text = "🕴"
+LogoButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+LogoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Painel Principal
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 300, 0, 350)
+MainFrame.Position = UDim2.new(0, 100, 0, 80)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainFrame.Visible = false
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- Drag
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+	local delta = input.Position - dragStart
+	MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+MainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then dragging = false end
+		end)
+	end
+end)
+MainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+UIS.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then update(input) end
+end)
+
+LogoButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Tabs
+local Tabs = {"Farm", "Brincadeira"}
+local TabFrames = {}
+local TabButtons = {}
+
+for i, name in ipairs(Tabs) do
+	local tab = Instance.new("TextButton", MainFrame)
+	tab.Size = UDim2.new(0.5, -10, 0, 30)
+	tab.Position = UDim2.new((i - 1) * 0.5, 10, 0, 10)
+	tab.Text = name
+	tab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	tab.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TabButtons[name] = tab
+
+	local frame = Instance.new("Frame", MainFrame)
+	frame.Position = UDim2.new(0, 10, 0, 50)
+	frame.Size = UDim2.new(1, -20, 1, -60)
+	frame.BackgroundTransparency = 1
+	frame.Visible = i == 1
+	TabFrames[name] = frame
+
+	tab.MouseButton1Click:Connect(function()
+		for _, f in pairs(TabFrames) do f.Visible = false end
+		frame.Visible = true
+	end)
+end
+
+-- Função de toggle
+local function createToggle(text, parent, callback)
+	local btn = Instance.new("TextButton", parent)
+	btn.Size = UDim2.new(1, 0, 0, 30)
+	btn.Text = "○ " .. text
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+	local enabled = false
+	btn.MouseButton1Click:Connect(function()
+		enabled = not enabled
+		btn.Text = (enabled and "● " or "○ ") .. text
+		callback(enabled)
+	end)
+end
+
+-- FARM TABS
+createToggle("Auto Força (+5)", TabFrames.Farm, function(state)
+	_G.autoForca = state
+	task.spawn(function()
+		while _G.autoForca do
+			pcall(function()
+				for i = 1, 4 do
+					LocalPlayer.Character.Dumbell.Event:FireServer(9)
+					wait(0.5)
+				end
+			end)
+			wait(1)
+		end
+	end)
+end)
+
+createToggle("Auto Vida (+1)", TabFrames.Farm, function(state)
+	_G.autoVida = state
+	task.spawn(function()
+		while _G.autoVida do
+			pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/hawk/teuscript/main/script.lua"))()
+			end)
+			wait(1)
+		end
+	end)
+end)
+
+createToggle("Auto Kill (ao tocar)", TabFrames.Farm, function(state)
+	_G.autoKill = state
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	char.Touched:Connect(function(hit)
+		if _G.autoKill and hit and hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
+			local root = hit.Parent:FindFirstChild("HumanoidRootPart")
+			if root then root.Velocity = Vector3.new(0, 500, 0) end
+		end
+	end)
+end)
+
+-- BRINCADEIRA TABS
+createToggle("Atravessar Paredes", TabFrames.Brincadeira, function(state)
+	_G.noclip = state
+	task.spawn(function()
+		while _G.noclip do
+			pcall(function()
+				for _,v in pairs(LocalPlayer.Character:GetDescendants()) do
+					if v:IsA("BasePart") then v.CanCollide = false end
+				end
+			end)
+			wait()
+		end
+	end)
+end)
+
+createToggle("Voar no Chão", TabFrames.Brincadeira, function(state)
+	_G.flyMove = state
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
+	local speed = 60
+	local flying = false
+	RS:BindToRenderStep("HawkFly", Enum.RenderPriority.Character.Value, function()
+		if _G.flyMove then
+			flying = true
+			local moveDir = LocalPlayer:GetMouse().Hit.lookVector
+			hrp.Velocity = moveDir * speed
+		elseif flying then
+			RS:UnbindFromRenderStep("HawkFly")
+			flying = false
+		end
+	end)
+end)
+
+createToggle("Pegar Fogo", TabFrames.Brincadeira, function(state)
+	local char = LocalPlayer.Character
+	if state then
+		local fire = Instance.new("Fire", char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart"))
+		fire.Size = 10
+		fire.Heat = 20
+	else
+		for _,v in pairs(char:GetDescendants()) do
+			if v:IsA("Fire") then v:Destroy() end
+		end
+	end
+end)
